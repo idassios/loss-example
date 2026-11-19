@@ -5,11 +5,9 @@ clear; clc;
 define_constants;
 
 %% MATPOWER path (EDIT IF NEEDED)
-mp_path = fullfile(filesep,'Users','ioannisdasios','Library','Mobile Documents', ...
-    'com~apple~CloudDocs','Documents','LatestPapers','Loss Min 2025','matpower8.1');
-addpath(genpath(mp_path));
+%% Check MATPOWER installation
 if isempty(which('runpf')) || isempty(which('loadcase')) || isempty(which('makeYbus'))
-    error('MATPOWER not found. Check mp_path.');
+    error('MATPOWER not found. Install MATPOWER and add it to the MATLAB path.');
 end
 disp('MATPOWER found.');
 
@@ -64,6 +62,38 @@ YGGM = full(YGG - YGL*(YLL\YLG));
 %% Nullspace basis and pick v1
 tol_null = 1e-1;
 Vbasis = null(YGGM, tol_null);
+
+
+% Numerical rank and column permutation
+s = svd(YGGM);
+r = sum(s > tol_null);
+
+[~, R, p] = qr(YGGM, 'vector');
+P = eye(n);
+P = P(:, p);
+
+% Approximate basis in the form of Theorem 2.1
+W = -R(1:r,1:r) \ R(1:r,r+1:n);
+Z = P * [W; eye(n-r)];
+
+disp('Generator-bus ordering:');
+disp(gen_buses);
+
+disp('Column permutation:');
+disp(p);
+
+disp('Matrix W:');
+disp(W);
+
+fprintf('Numerical rank: %d\n', r);
+
+for j = 1:size(Z,2)
+    residual = norm(YGGM*Z(:,j),2) / norm(Z(:,j),2);
+    fprintf('Basis %d normalized residual: %.12e\n', ...
+            j, residual);
+end
+
+
 if size(Vbasis,2) < 2
     error('Nullspace dimension < 2. Increase tol_null slightly.');
 end
