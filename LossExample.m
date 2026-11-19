@@ -1,15 +1,21 @@
-%% LossExample_v1.m  (SCRIPT)
-% Runs PF using V_G = 1 + gamma*v1 (magnitudes only), prints Pg/Qg for table
+%% LossExample.m
+% Reproduces the 28-bus AC power network example.
+% Computes the reduced admittance matrix, numerical rank,
+% column permutation, approximate null-space basis,
+% normalized residuals, and remaining current contributions.
+
 
 clear; clc;
-define_constants;
 
-%% MATPOWER path (EDIT IF NEEDED)
 %% Check MATPOWER installation
-if isempty(which('runpf')) || isempty(which('loadcase')) || isempty(which('makeYbus'))
+if isempty(which('runpf')) || isempty(which('loadcase')) || ...
+   isempty(which('makeYbus')) || isempty(which('define_constants'))
     error('MATPOWER not found. Install MATPOWER and add it to the MATLAB path.');
 end
 disp('MATPOWER found.');
+
+define_constants;
+
 
 %% Build 2-area case: IEEE 14 duplicated -> 28 buses
 mpc1 = loadcase('case14');
@@ -94,14 +100,20 @@ for j = 1:size(Z,2)
 end
 
 
+for j = 1:size(Z,2)
+    fprintf('Basis %d current contribution norm: %.12e\n', ...
+        j, norm(YGGM*Z(:,j),2));
+end
+
+
 if size(Vbasis,2) < 2
-    error('Nullspace dimension < 2. Increase tol_null slightly.');
+    error('Fewer than two approximate null-space vectors at the specified tolerance.');
 end
 
 v1 = Vbasis(:,1);
 v1 = v1 / max(abs(v1));   % normalize
 
-%% Build a feasible generator-voltage profile from v1
+%% Construct generator-voltage setpoints from v1
 gamma = 0.10;                           % small mixing factor
 VGprof = ones(n,1) + gamma*v1;          % complex profile
 VGset  = abs(VGprof);                   % MATPOWER uses magnitudes
